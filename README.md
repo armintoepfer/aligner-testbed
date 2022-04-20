@@ -22,6 +22,14 @@ alignment regions that go into the base-level alignment step:
  * `data/short.txt`, sequences with a max length of 500bp
  * `data/long.txt`, sequences with a lengths greater 500bp
 
+# Algorithms
+
+Three algorithms are currently available:
+
+ * KSW2 with `ksw_extd2_sse41`
+ * WFA2-lib with `WFAlignerGapAffine2Pieces`
+ * miniwfa
+
 # Compile
 
 You need `meson`, `ninja`, `boost`, and a modern C++ compiler that supports C++20.
