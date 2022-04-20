@@ -109,7 +109,6 @@ int64_t RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& seque
 {
     int32_t overallCigarLength{0};
 
-    Utility::Stopwatch timer;
     mwf_opt_t opt;
     mwf_opt_init(&opt);
     opt.x = alnP.mismatchPenalty;
@@ -137,10 +136,6 @@ int64_t RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& seque
         }
     }
 
-    timer.Freeze();
-    PBLOG_INFO << "MWFA time "
-               << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() / rounds /
-                                                             sequences.size());
     return overallCigarLength;
 }
 
@@ -170,7 +165,6 @@ int64_t RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequenc
 {
     int32_t overallCigarLength{0};
 
-    Utility::Stopwatch timer;
     auto attributes = wavefront_aligner_attr_default;
     attributes.memory_mode = wavefront_memory_high;
     attributes.distance_metric = gap_affine_2p;
@@ -211,20 +205,14 @@ int64_t RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequenc
     for (int32_t i = 0; i < rounds; ++i) {
         for (const auto& [qry, target] : sequences) {
             wavefront_align(wf_aligner, qry.c_str(), qry.size(), target.c_str(), target.size());
-            // Fetch CIGAR
             char* buffer = wf_aligner->cigar.operations + wf_aligner->cigar.begin_offset;
             int buf_len = wf_aligner->cigar.end_offset - wf_aligner->cigar.begin_offset;
             const std::string cigarLinear(buffer, buf_len);
             const std::string cigarCompressed = splitUnpackedCigar(cigarLinear);
             overallCigarLength += cigarCompressed.size();
-            // PBLOG_INFO << cigarCompressed;
         }
     }
     wavefront_aligner_delete(wf_aligner);
-    timer.Freeze();
-    PBLOG_INFO << "WFA2 time "
-               << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() / rounds /
-                                                             sequences.size());
     return overallCigarLength;
 }
 
@@ -233,7 +221,6 @@ int64_t RunKSW2(const std::vector<std::pair<std::string, std::string>>& sequence
 {
     int32_t overallCigarLength{0};
 
-    Utility::Stopwatch timer;
     auto ksw2Aligner = Pancake::CreateAlignerKSW2(alnP);
     for (int32_t i = 0; i < rounds; ++i) {
         for (const auto& [qry, target] : sequences) {
@@ -243,10 +230,7 @@ int64_t RunKSW2(const std::vector<std::pair<std::string, std::string>>& sequence
             overallCigarLength += res.cigar.ToStdString().size();
         }
     }
-    timer.Freeze();
-    PBLOG_INFO << "KSW2 time "
-               << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() / rounds /
-                                                             sequences.size());
+
     return overallCigarLength;
 }
 
@@ -263,13 +247,25 @@ int RunnerSubroutine(const CLI_v2::Results& options)
 
     int64_t cl{0};
     if (options[OptionNames::MiniWFA]) {
+        Utility::Stopwatch timer;
         cl += RunMiniWFA(sequences, alnP, rounds);
+        PBLOG_INFO << "MWFA time "
+                   << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() /
+                                                                 rounds / sequences.size());
     }
     if (options[OptionNames::WFA2]) {
+        Utility::Stopwatch timer;
         cl += RunWFA2C(sequences, alnP, rounds);
+        PBLOG_INFO << "WFA2 time "
+                   << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() /
+                                                                 rounds / sequences.size());
     }
     if (options[OptionNames::KSW2]) {
+        Utility::Stopwatch timer;
         cl += RunKSW2(sequences, alnP, rounds);
+        PBLOG_INFO << "KSW2 time "
+                   << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() /
+                                                                 rounds / sequences.size());
     }
 
     PBLOG_DEBUG << cl;
