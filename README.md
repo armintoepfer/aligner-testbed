@@ -53,14 +53,15 @@ ninja
 ```
 $ at ../data/short.txt
 | 20220420 14:07:59.594 | INFO | Number of sequence pairs : xxx
-| 20220420 14:07:59.658 | INFO | MWFA time xxx
-| 20220420 14:07:59.732 | INFO | WFA2 time xxx
-| 20220420 14:07:59.736 | INFO | KSW2 time xxx
+| 20220420 18:00:54.508 | INFO | miniwfa time  : xxx
+| 20220420 18:00:55.674 | INFO | WFA2 C time   : xxx
+| 20220420 18:00:55.706 | INFO | WFA2 C++ time : xxx
+| 20220420 18:00:55.741 | INFO | KSW2 time     : xxx
 ```
 
 Optionally, adjust the number of rounds to average timings and deactivate algos:
 ```
-$ ./at ../data/short.txt --miniwfa=true --wfa2=false --ksw2=true --rounds 100
+$ ./at ../data/short.txt --miniwfa=true --wfa2-c=false --wfa2-cpp=false --ksw2=true --rounds 100
 ```
 
 # Results

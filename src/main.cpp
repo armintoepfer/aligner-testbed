@@ -20,10 +20,18 @@ using namespace PacBio;
 
 namespace OptionNames {
 // clang-format off
-const CLI_v2::Option WFA2 {
+const CLI_v2::Option WFA2C {
 R"({
-    "names" : ["wfa2"],
-    "description" : "Use WFA2-lib",
+    "names" : ["wfa2-c"],
+    "description" : "Use WFA2-lib C API",
+    "type" : "bool",
+    "default" : true
+})"
+};
+const CLI_v2::Option WFA2Cpp {
+R"({
+    "names" : ["wfa2-cpp"],
+    "description" : "Use WFA2-lib C++ API",
     "type" : "bool",
     "default" : true
 })"
@@ -77,7 +85,8 @@ CLI_v2::Interface CreateCLI()
     })"};
     i.AddPositionalArgument(InputFile);
     i.AddOption(OptionNames::Rounds);
-    i.AddOptionGroup("Algorithms", {OptionNames::KSW2, OptionNames::WFA2, OptionNames::MiniWFA});
+    i.AddOptionGroup("Algorithms", {OptionNames::KSW2, OptionNames::WFA2C, OptionNames::WFA2Cpp,
+                                    OptionNames::MiniWFA});
 
     return i;
 }
@@ -103,6 +112,30 @@ std::vector<std::pair<std::string, std::string>> LoadTargetQueryFromFile(const s
 
     return result;
 }
+
+std::string SplitUnpackedCigar(const std::string& cigarStr)
+{
+    std::string cigar;
+    int num = 0;
+    char type = cigarStr[0];
+    for (char c : cigarStr) {
+        if (isdigit(c)) {
+            std::cerr << "Is this a valid unpacked CIGAR? <" << cigarStr << ">?\n";
+            exit(1);
+        }
+        if (c != type) {
+            if (type == 'M') {
+                type = '=';
+            }
+            cigar += std::to_string(num) + type;
+            type = c;
+            num = 0;
+        }
+        num += 1;
+    }
+    cigar += std::to_string(num) + type;
+    return cigar;
+};
 
 int64_t RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& sequences,
                    Pancake::AlignmentParameters& alnP, const int32_t rounds)
@@ -139,26 +172,24 @@ int64_t RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& seque
     return overallCigarLength;
 }
 
-// int64_t RunWFA2(const std::vector<std::pair<std::string, std::string>>& sequences,
-//                 Pancake::AlignmentParameters& alnP, const int32_t rounds)
-// {
-// Utility::Stopwatch timer;
-// for (int32_t i = 0; i < rounds; ++i) {
-//     for (const auto& [qry, target] : sequences) {
-//         wfa::WFAlignerGapAffine2Pieces aligner(
-//             alnP.mismatchPenalty, alnP.gapOpen1, alnP.gapExtend1, alnP.gapOpen2,
-//             alnP.gapExtend2, wfa::WFAligner::Alignment, wfa::WFAligner::MemoryHigh);
-//         aligner.alignEnd2End(qry.c_str(), qry.size(), target.c_str(), target.size());
-//         // PBLOG_INFO << aligner.getAlignmentScore() << ' ' << aligner.getAlignmentCigar();
-//         // PBLOG_INFO << aligner.getAlignmentCigar();
-//     }
-// }
-// timer.Freeze();
-// PBLOG_INFO << "WFA2 time "
-//            << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() / rounds /
-//                                                          sequences.size());
-//     return -1;
-// }
+int64_t RunWFA2Cpp(const std::vector<std::pair<std::string, std::string>>& sequences,
+                   Pancake::AlignmentParameters& alnP, const int32_t rounds)
+{
+    Utility::Stopwatch timer;
+    int32_t overallCigarLength{0};
+    for (int32_t i = 0; i < rounds; ++i) {
+        for (const auto& [qry, target] : sequences) {
+            wfa::WFAlignerGapAffine2Pieces aligner(
+                alnP.mismatchPenalty, alnP.gapOpen1, alnP.gapExtend1, alnP.gapOpen2,
+                alnP.gapExtend2, wfa::WFAligner::Alignment, wfa::WFAligner::MemoryHigh);
+            aligner.alignEnd2End(qry.c_str(), qry.size(), target.c_str(), target.size());
+            const std::string cigarCompressed = SplitUnpackedCigar(aligner.getAlignmentCigar());
+            overallCigarLength += cigarCompressed.size();
+            // PBLOG_INFO << aligner.getAlignmentCigar();
+        }
+    }
+    return overallCigarLength;
+}
 
 int64_t RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequences,
                  Pancake::AlignmentParameters& alnP, const int32_t rounds)
@@ -179,36 +210,13 @@ int64_t RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequenc
     wavefront_aligner_set_heuristic_none(wf_aligner);
     wavefront_aligner_set_alignment_end_to_end(wf_aligner);
 
-    const auto splitUnpackedCigar = [](const std::string& cigarStr) {
-        std::string cigar;
-        int num = 0;
-        char type = cigarStr[0];
-        for (char c : cigarStr) {
-            if (isdigit(c)) {
-                std::cerr << "Is this a valid unpacked CIGAR? <" << cigarStr << ">?\n";
-                exit(1);
-            }
-            if (c != type) {
-                if (type == 'M') {
-                    type = '=';
-                }
-                cigar += std::to_string(num) + type;
-                type = c;
-                num = 0;
-            }
-            num += 1;
-        }
-        cigar += std::to_string(num) + type;
-        return cigar;
-    };
-
     for (int32_t i = 0; i < rounds; ++i) {
         for (const auto& [qry, target] : sequences) {
             wavefront_align(wf_aligner, qry.c_str(), qry.size(), target.c_str(), target.size());
             char* buffer = wf_aligner->cigar.operations + wf_aligner->cigar.begin_offset;
             int buf_len = wf_aligner->cigar.end_offset - wf_aligner->cigar.begin_offset;
             const std::string cigarLinear(buffer, buf_len);
-            const std::string cigarCompressed = splitUnpackedCigar(cigarLinear);
+            const std::string cigarCompressed = SplitUnpackedCigar(cigarLinear);
             overallCigarLength += cigarCompressed.size();
         }
     }
@@ -249,21 +257,28 @@ int RunnerSubroutine(const CLI_v2::Results& options)
     if (options[OptionNames::MiniWFA]) {
         Utility::Stopwatch timer;
         cl += RunMiniWFA(sequences, alnP, rounds);
-        PBLOG_INFO << "MWFA time "
+        PBLOG_INFO << "miniwfa time  : "
                    << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() /
                                                                  rounds / sequences.size());
     }
-    if (options[OptionNames::WFA2]) {
+    if (options[OptionNames::WFA2C]) {
         Utility::Stopwatch timer;
         cl += RunWFA2C(sequences, alnP, rounds);
-        PBLOG_INFO << "WFA2 time "
+        PBLOG_INFO << "WFA2 C time   : "
+                   << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() /
+                                                                 rounds / sequences.size());
+    }
+    if (options[OptionNames::WFA2Cpp]) {
+        Utility::Stopwatch timer;
+        cl += RunWFA2Cpp(sequences, alnP, rounds);
+        PBLOG_INFO << "WFA2 C++ time : "
                    << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() /
                                                                  rounds / sequences.size());
     }
     if (options[OptionNames::KSW2]) {
         Utility::Stopwatch timer;
         cl += RunKSW2(sequences, alnP, rounds);
-        PBLOG_INFO << "KSW2 time "
+        PBLOG_INFO << "KSW2 time     : "
                    << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() /
                                                                  rounds / sequences.size());
     }
