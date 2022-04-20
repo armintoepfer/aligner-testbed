@@ -185,7 +185,7 @@ int64_t RunWFA2Cpp(const std::vector<std::pair<std::string, std::string>>& seque
             aligner.alignEnd2End(qry.c_str(), qry.size(), target.c_str(), target.size());
             const std::string cigarCompressed = SplitUnpackedCigar(aligner.getAlignmentCigar());
             overallCigarLength += cigarCompressed.size();
-            // PBLOG_INFO << aligner.getAlignmentCigar();
+            // PBLOG_INFO << cigarCompressed;
         }
     }
     return overallCigarLength;
@@ -218,6 +218,7 @@ int64_t RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequenc
             const std::string cigarLinear(buffer, buf_len);
             const std::string cigarCompressed = SplitUnpackedCigar(cigarLinear);
             overallCigarLength += cigarCompressed.size();
+            // PBLOG_INFO << cigarCompressed;
         }
     }
     wavefront_aligner_delete(wf_aligner);
@@ -233,9 +234,8 @@ int64_t RunKSW2(const std::vector<std::pair<std::string, std::string>>& sequence
     for (int32_t i = 0; i < rounds; ++i) {
         for (const auto& [qry, target] : sequences) {
             const auto res = ksw2Aligner->Global(target, qry);
-            // PBLOG_INFO << res.score << ' ' << res.cigar.ToStdString();
-            // PBLOG_INFO << res.cigar.ToStdString();
             overallCigarLength += res.cigar.ToStdString().size();
+            // PBLOG_INFO << res.cigar.ToStdString();
         }
     }
 
