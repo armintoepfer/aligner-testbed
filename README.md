@@ -28,6 +28,13 @@ ninja
 ninja install
 ```
 
+For debug builds
+```
+meson --buildtype debug
+ninja
+./cas
+```
+
 # How to run
 
 ```
