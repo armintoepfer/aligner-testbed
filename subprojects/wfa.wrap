@@ -1,0 +1,4 @@
+[wrap-git]
+directory=wfa
+url=https://github.com/armintoepfer/wfa2-lib
+revision=main
