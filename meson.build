@@ -57,6 +57,9 @@ cas_pancake_dep = dependency('pancake', fallback : ['pancake', 'pancake_dep'])
 # wfa
 cas_wfa_dep = dependency('wfa', fallback : ['wfa', 'wfa_dep'])
 
+# miniwfa
+cas_miniwfa_dep = dependency('miniwfa', fallback : ['miniwfa', 'miniwfa_dep'])
+
 cas_lib_deps = [
   cas_thread_dep,
   cas_boost_dep,
@@ -64,6 +67,7 @@ cas_lib_deps = [
   cas_pbbam_dep,
   cas_pancake_dep,
   cas_wfa_dep,
+  cas_miniwfa_dep,
 ]
 
 ###########

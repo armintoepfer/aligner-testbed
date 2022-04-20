@@ -1,0 +1,4 @@
+[wrap-git]
+directory=miniwfa
+url=https://github.com/armintoepfer/miniwfa
+revision=master

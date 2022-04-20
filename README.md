@@ -39,25 +39,26 @@ ninja
 
 ```
 $ cas ../data/short.txt
-| 20220420 10:47:13.291 | INFO | Number of sequence pairs : 24670
-| 20220420 10:47:15.943 | INFO | WFA2 time xxx
-| 20220420 10:47:18.152 | INFO | KSW2 time xxx
+| 20220420 14:07:59.594 | INFO | Number of sequence pairs : xxx
+| 20220420 14:07:59.658 | INFO | MWFA time xxx
+| 20220420 14:07:59.732 | INFO | WFA2 time xxx
+| 20220420 14:07:59.736 | INFO | KSW2 time xxx
+```
 
- ./cas ../data/long.txt
-| 20220420 10:47:22.864 | INFO | Number of sequence pairs : 2301
-| 20220420 10:47:25.763 | INFO | WFA2 time xxx
-| 20220420 10:47:34.653 | INFO | KSW2 time xxx
+Optionally, adjust the number of rounds to average timings and deactivate algos:
+```
+$ ./cas ../data/short.txt --miniwfa=true --wfa2=false --ksw2=true --rounds 100
 ```
 
 # Results
 
 Results are per sequence pair on average running the data 10-times:
 
-|  Compiler   |    Options     | Dataset | WFA2 | KSW2 |
-| ----------- | -------------- | ------- | ---- | ---- |
-| Apple Clang | -              | Short   |      |      |
-|             |                | Long    |      |      |
-| GCC11       | -              | Short   |      |      |
-|             |                | Long    |      |      |
-| GCC11       | `march=native` | Short   |      |      |
-|             |                | Long    |      |      |
+|  Compiler   |    Options     | Dataset | WFA2 | MWFA | KSW2 |
+| ----------- | -------------- | ------- | ---- | ---- | ---- |
+| Apple Clang | -              | Short   |      |      |      |
+|             |                | Long    |      |      |      |
+| GCC11       | -              | Short   |      |      |      |
+|             |                | Long    |      |      |      |
+| GCC11       | `march=native` | Short   |      |      |      |
+|             |                | Long    |      |      |      |
