@@ -19,7 +19,7 @@ alignment regions that go into the base-level alignment step:
 
 # Compile
 
-You need `meson`, `ninja`, and a modern C++ compiler that supports C++20.
+You need `meson`, `ninja`, `boost`, and a modern C++ compiler that supports C++20.
 
 ```
 mkdir build && cd build
