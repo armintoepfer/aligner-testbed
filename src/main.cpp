@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include "pbcopper/data/Cigar.h"
+#include "wavefront/wavefront_attributes.h"
 
 using namespace PacBio;
 
@@ -117,6 +118,7 @@ void RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& sequence
     opt.flag |= MWF_F_CIGAR;
     void* km = 0;
 
+    int32_t overallCigarLength{0};
     for (int32_t i = 0; i < rounds; ++i) {
         for (const auto& [qry, target] : sequences) {
             // km = km_init();
@@ -124,10 +126,10 @@ void RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& sequence
             mwf_wfa(km, &opt, qry.size(), qry.c_str(), target.size(), target.c_str(), &rst);
             // mwf_assert_cigar(&opt, rst.n_cigar, rst.cigar, qry.size(), target.size(), rst.s);
             std::string cigar;
-            // for (int32_t i = 0; i < rst.n_cigar; ++i) {
-            //     cigar += std::to_string(rst.cigar[i] >> 4) + "MIDNSHP=XBid"[rst.cigar[i] & 0xf];
-            // }
-            // PBLOG_INFO << rst.s << ' ' << Data::Cigar::FromStdString(cigar).ToStdString();
+            for (int32_t j = 0; j < rst.n_cigar; ++j) {
+                cigar += std::to_string(rst.cigar[j] >> 4) + "MIDNSHP=XBid"[rst.cigar[j] & 0xf];
+            }
+            // PBLOG_INFO << cigar;
             kfree(km, rst.cigar);
             // km_destroy(km);
         }
@@ -150,8 +152,69 @@ void RunWFA2(const std::vector<std::pair<std::string, std::string>>& sequences,
                 alnP.gapExtend2, wfa::WFAligner::Alignment, wfa::WFAligner::MemoryHigh);
             aligner.alignEnd2End(qry.c_str(), qry.size(), target.c_str(), target.size());
             // PBLOG_INFO << aligner.getAlignmentScore() << ' ' << aligner.getAlignmentCigar();
+            // PBLOG_INFO << aligner.getAlignmentCigar();
         }
     }
+    timer.Freeze();
+    PBLOG_INFO << "WFA2 time "
+               << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() / rounds /
+                                                             sequences.size());
+}
+
+void RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequences,
+              Pancake::AlignmentParameters& alnP, const int32_t rounds)
+{
+    Utility::Stopwatch timer;
+    auto attributes = wavefront_aligner_attr_default;
+    attributes.memory_mode = wavefront_memory_high;
+    attributes.distance_metric = gap_affine_2p;
+    attributes.affine2p_penalties.match = 0;
+    attributes.affine2p_penalties.mismatch = alnP.mismatchPenalty;
+    attributes.affine2p_penalties.gap_opening1 = alnP.gapOpen1;
+    attributes.affine2p_penalties.gap_extension1 = alnP.gapExtend1;
+    attributes.affine2p_penalties.gap_opening2 = alnP.gapOpen2;
+    attributes.affine2p_penalties.gap_extension2 = alnP.gapExtend2;
+    attributes.alignment_scope = compute_alignment;
+    auto wf_aligner = wavefront_aligner_new(&attributes);
+    wavefront_aligner_set_heuristic_none(wf_aligner);
+    wavefront_aligner_set_alignment_end_to_end(wf_aligner);
+
+    const auto splitUnpackedCigar = [](const std::string& cigarStr) {
+        std::string cigar;
+        int num = 0;
+        char type = cigarStr[0];
+        for (char c : cigarStr) {
+            if (isdigit(c)) {
+                std::cerr << "Is this a valid unpacked CIGAR? <" << cigarStr << ">?\n";
+                exit(1);
+            }
+            if (c != type) {
+                if (type == 'M') {
+                    type = '=';
+                }
+                cigar += std::to_string(num) + type;
+                type = c;
+                num = 0;
+            }
+            num += 1;
+        }
+        cigar += std::to_string(num) + type;
+        return cigar;
+    };
+
+    for (int32_t i = 0; i < rounds; ++i) {
+        for (const auto& [qry, target] : sequences) {
+            wavefront_align(wf_aligner, qry.c_str(), qry.size(), target.c_str(), target.size());
+            // Fetch CIGAR
+            char* buffer = wf_aligner->cigar.operations + wf_aligner->cigar.begin_offset;
+            int buf_len = wf_aligner->cigar.end_offset - wf_aligner->cigar.begin_offset;
+            const std::string cigarLinear(buffer, buf_len);
+            const std::string cigarCompressed = splitUnpackedCigar(cigarLinear);
+
+            // PBLOG_INFO << cigarCompressed;
+        }
+    }
+    wavefront_aligner_delete(wf_aligner);
     timer.Freeze();
     PBLOG_INFO << "WFA2 time "
                << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() / rounds /
@@ -167,6 +230,7 @@ void RunKSW2(const std::vector<std::pair<std::string, std::string>>& sequences,
         for (const auto& [qry, target] : sequences) {
             const auto res = ksw2Aligner->Global(target, qry);
             // PBLOG_INFO << res.score << ' ' << res.cigar.ToStdString();
+            // PBLOG_INFO << res.cigar.ToStdString();
         }
     }
     timer.Freeze();
@@ -190,7 +254,7 @@ int RunnerSubroutine(const CLI_v2::Results& options)
         RunMiniWFA(sequences, alnP, rounds);
     }
     if (options[OptionNames::WFA2]) {
-        RunWFA2(sequences, alnP, rounds);
+        RunWFA2C(sequences, alnP, rounds);
     }
     if (options[OptionNames::KSW2]) {
         RunKSW2(sequences, alnP, rounds);
