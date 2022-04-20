@@ -1,3 +1,8 @@
+<img src="img/wfa-logo.png" alt="WFA logo" width="120px" align="right"/>
+<h1 align="center">Aligner testbed</h1>
+<p align="center">Testbed for different aligners on CLR data</p>
+
+***
 # Goal
 
 Goal is to benchmark KSW2 vs WFA2 on realistic PacBio CLR data. We mimic one
@@ -32,13 +37,13 @@ For debug builds
 ```
 meson --buildtype debug
 ninja
-./cas
+./at
 ```
 
 # How to run
 
 ```
-$ cas ../data/short.txt
+$ at ../data/short.txt
 | 20220420 14:07:59.594 | INFO | Number of sequence pairs : xxx
 | 20220420 14:07:59.658 | INFO | MWFA time xxx
 | 20220420 14:07:59.732 | INFO | WFA2 time xxx
@@ -47,7 +52,7 @@ $ cas ../data/short.txt
 
 Optionally, adjust the number of rounds to average timings and deactivate algos:
 ```
-$ ./cas ../data/short.txt --miniwfa=true --wfa2=false --ksw2=true --rounds 100
+$ ./at ../data/short.txt --miniwfa=true --wfa2=false --ksw2=true --rounds 100
 ```
 
 # Results

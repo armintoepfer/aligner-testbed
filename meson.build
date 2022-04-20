@@ -1,5 +1,5 @@
 project(
-  'cas',
+  'aligner-testbed',
   'cpp',
   version : '0.0.1',
   default_options : [
@@ -15,7 +15,7 @@ project(
 # CXXFLAGS #
 ############
 
-cas_warning_flags = []
+at_warning_flags = []
 cpp = meson.get_compiler('cpp')
 foreach cflag: [
   '-Wduplicated-cond',
@@ -31,7 +31,7 @@ foreach cflag: [
   '-Wshadow',
   '-Wformat=1']
     if cpp.has_argument(cflag)
-      cas_warning_flags += cflag
+      at_warning_flags += cflag
     endif
 endforeach
 
@@ -40,34 +40,34 @@ endforeach
 ################
 
 # threads
-cas_thread_dep = dependency('threads')
+at_thread_dep = dependency('threads')
 
 # boost
-cas_boost_dep = dependency('boost', include_type : 'system')
+at_boost_dep = dependency('boost', include_type : 'system')
 
 # pbcopper
-cas_pbcopper_dep = dependency('pbcopper', fallback : ['pbcopper', 'pbcopper_dep'])
+at_pbcopper_dep = dependency('pbcopper', fallback : ['pbcopper', 'pbcopper_dep'])
 
 # pbbam
-cas_pbbam_dep = dependency('pbbam', fallback : ['pbbam', 'pbbam_dep'])
+at_pbbam_dep = dependency('pbbam', fallback : ['pbbam', 'pbbam_dep'])
 
 # pancake
-cas_pancake_dep = dependency('pancake', fallback : ['pancake', 'pancake_dep'])
+at_pancake_dep = dependency('pancake', fallback : ['pancake', 'pancake_dep'])
 
 # wfa
-cas_wfa_dep = dependency('wfa', fallback : ['wfa', 'wfa_dep'])
+at_wfa_dep = dependency('wfa', fallback : ['wfa', 'wfa_dep'])
 
 # miniwfa
-cas_miniwfa_dep = dependency('miniwfa', fallback : ['miniwfa', 'miniwfa_dep'])
+at_miniwfa_dep = dependency('miniwfa', fallback : ['miniwfa', 'miniwfa_dep'])
 
-cas_lib_deps = [
-  cas_thread_dep,
-  cas_boost_dep,
-  cas_pbcopper_dep,
-  cas_pbbam_dep,
-  cas_pancake_dep,
-  cas_wfa_dep,
-  cas_miniwfa_dep,
+at_lib_deps = [
+  at_thread_dep,
+  at_boost_dep,
+  at_pbcopper_dep,
+  at_pbbam_dep,
+  at_pancake_dep,
+  at_wfa_dep,
+  at_miniwfa_dep,
 ]
 
 ###########
@@ -75,11 +75,11 @@ cas_lib_deps = [
 ###########
 
 executable(
-  'cas',
+  'at',
   files([
     'src/main.cpp',
   ]),
-  dependencies : cas_lib_deps,
+  dependencies : at_lib_deps,
   install : true,
-  cpp_args : cas_warning_flags
+  cpp_args : at_warning_flags
 )
