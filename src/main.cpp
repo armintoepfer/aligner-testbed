@@ -104,9 +104,11 @@ std::vector<std::pair<std::string, std::string>> LoadTargetQueryFromFile(const s
     return result;
 }
 
-void RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& sequences,
-                Pancake::AlignmentParameters& alnP, const int32_t rounds)
+int64_t RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& sequences,
+                   Pancake::AlignmentParameters& alnP, const int32_t rounds)
 {
+    int32_t overallCigarLength{0};
+
     Utility::Stopwatch timer;
     mwf_opt_t opt;
     mwf_opt_init(&opt);
@@ -118,7 +120,6 @@ void RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& sequence
     opt.flag |= MWF_F_CIGAR;
     void* km = 0;
 
-    int32_t overallCigarLength{0};
     for (int32_t i = 0; i < rounds; ++i) {
         for (const auto& [qry, target] : sequences) {
             // km = km_init();
@@ -130,6 +131,7 @@ void RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& sequence
                 cigar += std::to_string(rst.cigar[j] >> 4) + "MIDNSHP=XBid"[rst.cigar[j] & 0xf];
             }
             // PBLOG_INFO << cigar;
+            overallCigarLength += cigar.size();
             kfree(km, rst.cigar);
             // km_destroy(km);
         }
@@ -139,31 +141,35 @@ void RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& sequence
     PBLOG_INFO << "MWFA time "
                << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() / rounds /
                                                              sequences.size());
+    return overallCigarLength;
 }
 
-void RunWFA2(const std::vector<std::pair<std::string, std::string>>& sequences,
-             Pancake::AlignmentParameters& alnP, const int32_t rounds)
-{
-    Utility::Stopwatch timer;
-    for (int32_t i = 0; i < rounds; ++i) {
-        for (const auto& [qry, target] : sequences) {
-            wfa::WFAlignerGapAffine2Pieces aligner(
-                alnP.mismatchPenalty, alnP.gapOpen1, alnP.gapExtend1, alnP.gapOpen2,
-                alnP.gapExtend2, wfa::WFAligner::Alignment, wfa::WFAligner::MemoryHigh);
-            aligner.alignEnd2End(qry.c_str(), qry.size(), target.c_str(), target.size());
-            // PBLOG_INFO << aligner.getAlignmentScore() << ' ' << aligner.getAlignmentCigar();
-            // PBLOG_INFO << aligner.getAlignmentCigar();
-        }
-    }
-    timer.Freeze();
-    PBLOG_INFO << "WFA2 time "
-               << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() / rounds /
-                                                             sequences.size());
-}
+// int64_t RunWFA2(const std::vector<std::pair<std::string, std::string>>& sequences,
+//                 Pancake::AlignmentParameters& alnP, const int32_t rounds)
+// {
+// Utility::Stopwatch timer;
+// for (int32_t i = 0; i < rounds; ++i) {
+//     for (const auto& [qry, target] : sequences) {
+//         wfa::WFAlignerGapAffine2Pieces aligner(
+//             alnP.mismatchPenalty, alnP.gapOpen1, alnP.gapExtend1, alnP.gapOpen2,
+//             alnP.gapExtend2, wfa::WFAligner::Alignment, wfa::WFAligner::MemoryHigh);
+//         aligner.alignEnd2End(qry.c_str(), qry.size(), target.c_str(), target.size());
+//         // PBLOG_INFO << aligner.getAlignmentScore() << ' ' << aligner.getAlignmentCigar();
+//         // PBLOG_INFO << aligner.getAlignmentCigar();
+//     }
+// }
+// timer.Freeze();
+// PBLOG_INFO << "WFA2 time "
+//            << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() / rounds /
+//                                                          sequences.size());
+//     return -1;
+// }
 
-void RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequences,
-              Pancake::AlignmentParameters& alnP, const int32_t rounds)
+int64_t RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequences,
+                 Pancake::AlignmentParameters& alnP, const int32_t rounds)
 {
+    int32_t overallCigarLength{0};
+
     Utility::Stopwatch timer;
     auto attributes = wavefront_aligner_attr_default;
     attributes.memory_mode = wavefront_memory_high;
@@ -210,7 +216,7 @@ void RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequences,
             int buf_len = wf_aligner->cigar.end_offset - wf_aligner->cigar.begin_offset;
             const std::string cigarLinear(buffer, buf_len);
             const std::string cigarCompressed = splitUnpackedCigar(cigarLinear);
-
+            overallCigarLength += cigarCompressed.size();
             // PBLOG_INFO << cigarCompressed;
         }
     }
@@ -219,11 +225,14 @@ void RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequences,
     PBLOG_INFO << "WFA2 time "
                << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() / rounds /
                                                              sequences.size());
+    return overallCigarLength;
 }
 
-void RunKSW2(const std::vector<std::pair<std::string, std::string>>& sequences,
-             Pancake::AlignmentParameters& alnP, const int32_t rounds)
+int64_t RunKSW2(const std::vector<std::pair<std::string, std::string>>& sequences,
+                Pancake::AlignmentParameters& alnP, const int32_t rounds)
 {
+    int32_t overallCigarLength{0};
+
     Utility::Stopwatch timer;
     auto ksw2Aligner = Pancake::CreateAlignerKSW2(alnP);
     for (int32_t i = 0; i < rounds; ++i) {
@@ -231,12 +240,14 @@ void RunKSW2(const std::vector<std::pair<std::string, std::string>>& sequences,
             const auto res = ksw2Aligner->Global(target, qry);
             // PBLOG_INFO << res.score << ' ' << res.cigar.ToStdString();
             // PBLOG_INFO << res.cigar.ToStdString();
+            overallCigarLength += res.cigar.ToStdString().size();
         }
     }
     timer.Freeze();
     PBLOG_INFO << "KSW2 time "
                << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() / rounds /
                                                              sequences.size());
+    return overallCigarLength;
 }
 
 int RunnerSubroutine(const CLI_v2::Results& options)
@@ -250,15 +261,18 @@ int RunnerSubroutine(const CLI_v2::Results& options)
     Pancake::AlignmentParameters alnP;
     const int32_t rounds = options[OptionNames::Rounds];
 
+    int64_t cl{0};
     if (options[OptionNames::MiniWFA]) {
-        RunMiniWFA(sequences, alnP, rounds);
+        cl += RunMiniWFA(sequences, alnP, rounds);
     }
     if (options[OptionNames::WFA2]) {
-        RunWFA2C(sequences, alnP, rounds);
+        cl += RunWFA2C(sequences, alnP, rounds);
     }
     if (options[OptionNames::KSW2]) {
-        RunKSW2(sequences, alnP, rounds);
+        cl += RunKSW2(sequences, alnP, rounds);
     }
+
+    PBLOG_DEBUG << cl;
 
     return EXIT_SUCCESS;
 }
