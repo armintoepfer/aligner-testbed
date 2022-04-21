@@ -207,7 +207,8 @@ int64_t RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequenc
     attributes.affine2p_penalties.gap_extension2 = alnP.gapExtend2;
     attributes.alignment_scope = compute_alignment;
     auto wf_aligner = wavefront_aligner_new(&attributes);
-    wavefront_aligner_set_heuristic_none(wf_aligner);
+    wavefront_aligner_set_heuristic_wfadaptive(wf_aligner, 10, 50, 1);
+    // wavefront_aligner_set_heuristic_none(wf_aligner);
     wavefront_aligner_set_alignment_end_to_end(wf_aligner);
 
     for (int32_t i = 0; i < rounds; ++i) {
