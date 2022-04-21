@@ -52,6 +52,14 @@ R"({
     "default" : true
 })"
 };
+const CLI_v2::Option Adaptive {
+R"({
+    "names" : ["wfa-adaptive"],
+    "description" : "Use adaptive heuristic for WFA",
+    "type" : "bool",
+    "default" : false
+})"
+};
 const CLI_v2::Option Rounds {
 R"({
     "names" : ["r", "rounds"],
@@ -85,6 +93,7 @@ CLI_v2::Interface CreateCLI()
     })"};
     i.AddPositionalArgument(InputFile);
     i.AddOption(OptionNames::Rounds);
+    i.AddOption(OptionNames::Adaptive);
     i.AddOptionGroup("Algorithms", {OptionNames::KSW2, OptionNames::WFA2C, OptionNames::WFA2Cpp,
                                     OptionNames::MiniWFA});
 
@@ -199,7 +208,7 @@ int64_t RunWFA2Cpp(const std::vector<std::pair<std::string, std::string>>& seque
 
 int64_t RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequences,
                  Pancake::AlignmentParameters& alnP, const int32_t rounds,
-                 const Logging::LogLevel logLevel)
+                 const Logging::LogLevel logLevel, const bool adaptive)
 {
     int32_t overallCigarLength{0};
 
@@ -214,8 +223,11 @@ int64_t RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequenc
     attributes.affine2p_penalties.gap_extension2 = alnP.gapExtend2;
     attributes.alignment_scope = compute_alignment;
     auto wf_aligner = wavefront_aligner_new(&attributes);
-    wavefront_aligner_set_heuristic_wfadaptive(wf_aligner, 10, 50, 1);
-    // wavefront_aligner_set_heuristic_none(wf_aligner);
+    if (adaptive) {
+        wavefront_aligner_set_heuristic_wfadaptive(wf_aligner, 10, 50, 1);
+    } else {
+        wavefront_aligner_set_heuristic_none(wf_aligner);
+    }
     wavefront_aligner_set_alignment_end_to_end(wf_aligner);
 
     for (int32_t i = 0; i < rounds; ++i) {
@@ -277,7 +289,7 @@ int RunnerSubroutine(const CLI_v2::Results& options)
     }
     if (options[OptionNames::WFA2C]) {
         Utility::Stopwatch timer;
-        cl += RunWFA2C(sequences, alnP, rounds, loglevel);
+        cl += RunWFA2C(sequences, alnP, rounds, loglevel, options[OptionNames::Adaptive]);
         PBLOG_INFO << "WFA2 C time   : "
                    << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() /
                                                                  rounds / sequences.size());
