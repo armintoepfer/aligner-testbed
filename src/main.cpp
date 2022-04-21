@@ -135,7 +135,7 @@ std::string SplitUnpackedCigar(const std::string& cigarStr)
     }
     cigar += std::to_string(num) + type;
     return cigar;
-};
+}
 
 int64_t RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& sequences,
                    Pancake::AlignmentParameters& alnP, const int32_t rounds)
