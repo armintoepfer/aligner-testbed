@@ -142,15 +142,17 @@ std::string SplitUnpackedCigar(const std::string& cigarStr)
         }
         num += 1;
     }
-    cigar += std::to_string(num) + type;
+    if (num) {
+        cigar += std::to_string(num) + type;
+    }
     return cigar;
 }
 
-int64_t RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& sequences,
+int32_t RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& sequences,
                    Pancake::AlignmentParameters& alnP, const int32_t rounds,
                    const Logging::LogLevel logLevel)
 {
-    int32_t overallCigarLength{0};
+    int32_t passedAlns{0};
 
     mwf_opt_t opt;
     mwf_opt_init(&opt);
@@ -175,21 +177,21 @@ int64_t RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& seque
             if (logLevel == Logging::LogLevel::DEBUG) {
                 PBLOG_DEBUG << cigar;
             }
-            overallCigarLength += cigar.size();
+            passedAlns += !cigar.empty();
             kfree_w(km, rst.cigar);
         }
     }
     km_destroy_w(km);
 
-    return overallCigarLength;
+    return passedAlns;
 }
 
-int64_t RunWFA2Cpp(const std::vector<std::pair<std::string, std::string>>& sequences,
+int32_t RunWFA2Cpp(const std::vector<std::pair<std::string, std::string>>& sequences,
                    Pancake::AlignmentParameters& alnP, const int32_t rounds,
                    const Logging::LogLevel logLevel)
 {
     Utility::Stopwatch timer;
-    int32_t overallCigarLength{0};
+    int32_t passedAlns{0};
     for (int32_t i = 0; i < rounds; ++i) {
         for (const auto& [qry, target] : sequences) {
             wfa::WFAlignerGapAffine2Pieces aligner(
@@ -197,20 +199,20 @@ int64_t RunWFA2Cpp(const std::vector<std::pair<std::string, std::string>>& seque
                 alnP.gapExtend2, wfa::WFAligner::Alignment, wfa::WFAligner::MemoryHigh);
             aligner.alignEnd2End(qry.c_str(), qry.size(), target.c_str(), target.size());
             const std::string cigarCompressed = SplitUnpackedCigar(aligner.getAlignmentCigar());
-            overallCigarLength += cigarCompressed.size();
+            passedAlns += !cigarCompressed.empty();
             if (logLevel == Logging::LogLevel::DEBUG) {
                 PBLOG_DEBUG << cigarCompressed;
             }
         }
     }
-    return overallCigarLength;
+    return passedAlns;
 }
 
-int64_t RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequences,
+int32_t RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequences,
                  Pancake::AlignmentParameters& alnP, const int32_t rounds,
                  const Logging::LogLevel logLevel, const bool adaptive)
 {
-    int32_t overallCigarLength{0};
+    int32_t passedAlns{0};
 
     auto attributes = wavefront_aligner_attr_default;
     attributes.memory_mode = wavefront_memory_high;
@@ -237,34 +239,34 @@ int64_t RunWFA2C(const std::vector<std::pair<std::string, std::string>>& sequenc
             int buf_len = wf_aligner->cigar.end_offset - wf_aligner->cigar.begin_offset;
             const std::string cigarLinear(buffer, buf_len);
             const std::string cigarCompressed = SplitUnpackedCigar(cigarLinear);
-            overallCigarLength += cigarCompressed.size();
+            passedAlns += !cigarCompressed.empty();
             if (logLevel == Logging::LogLevel::DEBUG) {
                 PBLOG_DEBUG << cigarCompressed;
             }
         }
     }
     wavefront_aligner_delete(wf_aligner);
-    return overallCigarLength;
+    return passedAlns;
 }
 
-int64_t RunKSW2(const std::vector<std::pair<std::string, std::string>>& sequences,
+int32_t RunKSW2(const std::vector<std::pair<std::string, std::string>>& sequences,
                 Pancake::AlignmentParameters& alnP, const int32_t rounds,
                 const Logging::LogLevel logLevel)
 {
-    int32_t overallCigarLength{0};
+    int32_t passedAlns{0};
 
     auto ksw2Aligner = Pancake::CreateAlignerKSW2(alnP);
     for (int32_t i = 0; i < rounds; ++i) {
         for (const auto& [qry, target] : sequences) {
             const auto res = ksw2Aligner->Global(target, qry);
-            overallCigarLength += res.cigar.ToStdString().size();
+            passedAlns += !res.cigar.ToStdString().empty();
             if (logLevel == Logging::LogLevel::DEBUG) {
                 PBLOG_DEBUG << res.cigar.ToStdString();
             }
         }
     }
 
-    return overallCigarLength;
+    return passedAlns;
 }
 
 int RunnerSubroutine(const CLI_v2::Results& options)
@@ -279,37 +281,35 @@ int RunnerSubroutine(const CLI_v2::Results& options)
     const int32_t rounds = options[OptionNames::Rounds];
     const auto loglevel{options.LogLevel()};
 
-    int64_t cl{0};
     if (options[OptionNames::MiniWFA]) {
         Utility::Stopwatch timer;
-        cl += RunMiniWFA(sequences, alnP, rounds, loglevel);
-        PBLOG_INFO << "miniwfa time  : "
+        const int32_t passedAlns = RunMiniWFA(sequences, alnP, rounds, loglevel);
+        PBLOG_INFO << "miniwfa   : " << (passedAlns / rounds) << " / "
                    << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() /
                                                                  rounds / sequences.size());
     }
     if (options[OptionNames::WFA2C]) {
         Utility::Stopwatch timer;
-        cl += RunWFA2C(sequences, alnP, rounds, loglevel, options[OptionNames::Adaptive]);
-        PBLOG_INFO << "WFA2 C time   : "
+        const int32_t passedAlns =
+            RunWFA2C(sequences, alnP, rounds, loglevel, options[OptionNames::Adaptive]);
+        PBLOG_INFO << "WFA2 C    : " << (passedAlns / rounds) << " / "
                    << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() /
                                                                  rounds / sequences.size());
     }
     if (options[OptionNames::WFA2Cpp]) {
         Utility::Stopwatch timer;
-        cl += RunWFA2Cpp(sequences, alnP, rounds, loglevel);
-        PBLOG_INFO << "WFA2 C++ time : "
+        const int32_t passedAlns = RunWFA2Cpp(sequences, alnP, rounds, loglevel);
+        PBLOG_INFO << "WFA2 C++  : " << (passedAlns / rounds) << " / "
                    << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() /
                                                                  rounds / sequences.size());
     }
     if (options[OptionNames::KSW2]) {
         Utility::Stopwatch timer;
-        cl += RunKSW2(sequences, alnP, rounds, loglevel);
-        PBLOG_INFO << "KSW2 time     : "
+        const int32_t passedAlns = RunKSW2(sequences, alnP, rounds, loglevel);
+        PBLOG_INFO << "KSW2      : " << (passedAlns / rounds) << " / "
                    << Utility::Stopwatch::PrettyPrintNanoseconds(timer.ElapsedNanoseconds() /
                                                                  rounds / sequences.size());
     }
-
-    PBLOG_DEBUG << cl;
 
     return EXIT_SUCCESS;
 }
