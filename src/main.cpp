@@ -152,9 +152,9 @@ int64_t RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& seque
     opt.flag |= MWF_F_CIGAR;
     void* km = 0;
 
+    km = km_init();
     for (int32_t i = 0; i < rounds; ++i) {
         for (const auto& [qry, target] : sequences) {
-            // km = km_init();
             mwf_rst_t rst;
             mwf_wfa(km, &opt, qry.size(), qry.c_str(), target.size(), target.c_str(), &rst);
             // mwf_assert_cigar(&opt, rst.n_cigar, rst.cigar, qry.size(), target.size(), rst.s);
@@ -165,9 +165,9 @@ int64_t RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& seque
             // PBLOG_INFO << cigar;
             overallCigarLength += cigar.size();
             kfree(km, rst.cigar);
-            // km_destroy(km);
         }
     }
+    km_destroy(km);
 
     return overallCigarLength;
 }
