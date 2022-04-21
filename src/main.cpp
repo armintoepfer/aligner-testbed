@@ -1,4 +1,4 @@
-#include <kalloc.h>
+#include <kallocw.h>
 #include <miniwfa.h>
 #include <pbcopper/cli2/CLI.h>
 #include <pbcopper/cli2/internal/BuiltinOptions.h>
@@ -152,7 +152,7 @@ int64_t RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& seque
     opt.flag |= MWF_F_CIGAR;
     void* km = 0;
 
-    km = km_init();
+    km = km_init_w();  // Avoid using ksw2's kalloc..
     for (int32_t i = 0; i < rounds; ++i) {
         for (const auto& [qry, target] : sequences) {
             mwf_rst_t rst;
@@ -164,10 +164,10 @@ int64_t RunMiniWFA(const std::vector<std::pair<std::string, std::string>>& seque
             }
             // PBLOG_INFO << cigar;
             overallCigarLength += cigar.size();
-            kfree(km, rst.cigar);
+            kfree_w(km, rst.cigar);
         }
     }
-    km_destroy(km);
+    km_destroy_w(km);
 
     return overallCigarLength;
 }
