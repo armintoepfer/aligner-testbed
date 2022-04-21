@@ -33,7 +33,7 @@ R"({
     "names" : ["wfa2-cpp"],
     "description" : "Use WFA2-lib C++ API",
     "type" : "bool",
-    "default" : true
+    "default" : false
 })"
 };
 const CLI_v2::Option KSW2 {
